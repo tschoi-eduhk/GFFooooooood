@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What's For Dinner? (No Spice!)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 20px;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .title-font {
+            font-family: 'Fredoka One', cursive;
+        }
+
+        .wheel-container {
+            position: relative;
+            width: 350px;
+            height: 350px;
+            margin: 30px auto;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));
+        }
+
+        @media (max-width: 400px) {
+            .wheel-container {
+                width: 280px;
+                height: 280px;
+            }
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 6px solid #fff;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+
+        /* The pointer for the wheel */
+        .pointer {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background-color: #ff4757;
+            clip-path: polygon(50% 100%, 0 0, 100% 0);
+            z-index: 10;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+        }
+
+        /* Center dot */
+        .center-dot {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            background-color: white;
+            border-radius: 50%;
+            z-index: 5;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        /* Playful button styles */
+        .spin-btn {
+            font-family: 'Fredoka One', cursive;
+            background: linear-gradient(to right, #ff6b6b, #ff8e8b);
+            box-shadow: 0 6px 0 #c0392b, 0 10px 20px rgba(0,0,0,0.2);
+            transition: all 0.1s ease;
+        }
+        
+        .spin-btn:active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 #c0392b, 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .spin-btn:disabled {
+            background: #bdc3c7;
+            box-shadow: 0 6px 0 #7f8c8d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Result modal animation */
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .result-box {
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Confetti piece */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f00;
+            opacity: 0;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div class="max-w-md w-full bg-white/80 backdrop-blur-md p-8 rounded-3xl shadow-2xl border-4 border-white text-center relative overflow-hidden">
+        
+        <h1 class="text-4xl title-font text-pink-500 mb-2 tracking-wide">What's for Dinner?</h1>
+        <p class="text-lg font-bold text-indigo-400 mb-6 bg-indigo-50 inline-block px-4 py-1 rounded-full">(100% Girlfriend Approved & Non-Spicy! 💖)</p>
+
+        <div class="wheel-container">
+            <div class="pointer"></div>
+            <div class="center-dot">🍽️</div>
+            <canvas id="wheelCanvas" width="500" height="500"></canvas>
+        </div>
+
+        <button id="spinBtn" class="spin-btn text-white text-2xl px-10 py-4 rounded-full w-full mt-4 mb-2">
+            SPIN THE WHEEL!
+        </button>
+
+        <div id="resultOverlay" class="hidden absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-6 z-20 rounded-2xl">
+            <h2 class="text-3xl title-font text-gray-700 mb-2">Tonight we're having...</h2>
+            <div id="resultText" class="text-5xl title-font text-pink-500 my-6 text-center result-box leading-tight">
+                <!-- Result goes here -->
+            </div>
+            <button id="resetBtn" class="mt-6 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-colors text-xl">
+                Awesome! Let's Eat 😋
+            </button>
+            <p class="mt-4 text-sm text-gray-500 underline cursor-pointer" id="spinAgainText">Actually, let's spin again</p>
+        </div>
+    </div>
+    
+    <div id="confetti-container" class="fixed inset-0 pointer-events-none z-40"></div>
+
+    <script>
+        // Strictly non-spicy options
+        const foods = [
+            { text: "Sushi 🍣", color: "#FF9AA2" },     // Pastel Red/Pink
+            { text: "Pizza 🍕", color: "#FFB7B2" },     // Pastel Coral
+            { text: "Pasta 🍝", color: "#FFDAC1" },     // Pastel Orange
+            { text: "Burgers 🍔", color: "#E2F0CB" },     // Pastel Green
+            { text: "Dim Sum 🥟", color: "#B5EAD7" },     // Pastel Mint
+            { text: "Salad 🥗", color: "#C7CEEA" },     // Pastel Periwinkle
+            { text: "Chicken 🍗", color: "#F8B195" },   // Peach
+            { text: "Mac & Cheese 🧀", color: "#F67280" } // Soft Red
+        ];
+
+        const canvas = document.getElementById("wheelCanvas");
+        const ctx = canvas.getContext("2d");
+        const spinBtn = document.getElementById("spinBtn");
+        const resultOverlay = document.getElementById("resultOverlay");
+        const resultText = document.getElementById("resultText");
+        const resetBtn = document.getElementById("resetBtn");
+        const spinAgainText = document.getElementById("spinAgainText");
+        const confettiContainer = document.getElementById("confetti-container");
+
+        // Constants for drawing
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = Math.min(centerX, centerY) - 10; 
+        const arc = Math.PI * 2 / foods.length;
+        
+        let currentAngle = 0;
+        let isSpinning = false;
+        
+        function drawWheel() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let i = 0; i < foods.length; i++) {
+                const angle = currentAngle + i * arc;
+                
+                // Draw slice
+                ctx.beginPath();
+                ctx.fillStyle = foods[i].color;
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, angle, angle + arc, false);
+                ctx.lineTo(centerX, centerY);
+                ctx.fill();
+                
+                // Add a border to slices
+                ctx.strokeStyle = "#ffffff";
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                // Draw text
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(angle + arc / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#333";
+                ctx.font = "bold 24px 'Nunito', sans-serif";
+                
+                // Add slight shadow to text for readability
+                ctx.shadowColor = "rgba(255,255,255,0.8)";
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+                
+                // Adjust text position
+                ctx.fillText(foods[i].text, radius - 30, 8);
+                ctx.restore();
+            }
+        }
+
+        function easeOut(t, b, c, d) {
+            // Easing function for smooth deceleration
+            t /= d;
+            t--;
+            return c * (t * t * t + 1) + b;
+        }
+
+        function spinWheel() {
+            if (isSpinning) return;
+            isSpinning = true;
+            spinBtn.disabled = true;
+            spinBtn.textContent = "SPINNING...";
+            resultOverlay.classList.add("hidden");
+            confettiContainer.innerHTML = '';
+
+            // Calculate spin parameters
+            const spinTimeTotal = Math.random() * 2000 + 3000; // 3 to 5 seconds
+            const spinAngleStart = Math.random() * 10 + 20; // Initial speed multiplier
+            
+            let spinTime = 0;
+            
+            function animateSpin() {
+                spinTime += 30; // ~30ms per frame
+                
+                if (spinTime >= spinTimeTotal) {
+                    stopRotateWheel();
+                    return;
+                }
+                
+                // Calculate new angle using easing
+                const spinAngle = easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
+                currentAngle += (spinAngle * Math.PI / 180);
+                
+                drawWheel();
+                requestAnimationFrame(animateSpin);
+            }
+            
+            animateSpin();
+        }
+
+        function stopRotateWheel() {
+            isSpinning = false;
+            spinBtn.disabled = false;
+            spinBtn.textContent = "SPIN THE WHEEL!";
+            
+            // Normalize angle to be between 0 and 2PI
+            const degrees = currentAngle * 180 / Math.PI + 90; // +90 because pointer is at top
+            const arcd = arc * 180 / Math.PI;
+            
+            // Calculate which segment is at the top (pointer position)
+            const index = Math.floor((360 - degrees % 360) / arcd);
+            
+            // Handle edge case where index might be out of bounds due to floating point math
+            const safeIndex = (index >= 0 && index < foods.length) ? index : 0;
+            
+            showResult(foods[safeIndex]);
+        }
+        
+        function showResult(food) {
+            resultText.innerHTML = food.text;
+            resultText.style.color = food.color;
+            // Darken the color slightly for text readability if it's too light, 
+            // but we're keeping it simple and using a text shadow in CSS instead.
+            resultText.style.textShadow = "2px 2px 0 #333, -1px -1px 0 #333, 1px -1px 0 #333, -1px 1px 0 #333, 1px 1px 0 #333";
+            
+            resultOverlay.classList.remove("hidden");
+            
+            // Reset animation by triggering reflow
+            resultText.classList.remove("result-box");
+            void resultText.offsetWidth; 
+            resultText.classList.add("result-box");
+            
+            fireConfetti();
+        }
+        
+        function fireConfetti() {
+            const colors = ['#FF9AA2', '#FFB7B2', '#FFDAC1', '#E2F0CB', '#B5EAD7', '#C7CEEA'];
+            
+            for (let i = 0; i < 50; i++) {
+                const conf = document.createElement('div');
+                conf.classList.add('confetti');
+                conf.style.left = Math.random() * 100 + 'vw';
+                conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                
+                // Randomize animation properties
+                const animDuration = Math.random() * 2 + 2; // 2-4s
+                const delay = Math.random() * 0.5;
+                
+                conf.style.animation = `fall ${animDuration}s ${delay}s ease-in forwards`;
+                
+                confettiContainer.appendChild(conf);
+            }
+        }
+        
+        // Add dynamic styles for confetti falling
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes fall {
+                0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+                100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Event Listeners
+        spinBtn.addEventListener("click", spinWheel);
+        
+        resetBtn.addEventListener("click", () => {
+            resultOverlay.classList.add("hidden");
+            confettiContainer.innerHTML = '';
+        });
+        
+        spinAgainText.addEventListener("click", () => {
+            resultOverlay.classList.add("hidden");
+            confettiContainer.innerHTML = '';
+            spinWheel(); // immediately spin again
+        });
+
+        // Initial draw
+        drawWheel();
+
+    </script>
+</body>
+</html>
